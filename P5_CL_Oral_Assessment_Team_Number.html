@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雅德小学五年级华文/基础华文口试</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- html2pdf.js: generate a real PDF without opening the browser print page -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        @media print {
+            body { background-color: white; font-size: 14pt; }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            .print-container {
+                border: 2px solid #3b82f6;
+                border-radius: 16px;
+                padding: 50px;
+                margin: 20px;
+                box-shadow: none;
+            }
+        }
+        .print-only { display: none; }
+        
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fefce8;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #fde047;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #facc15;
+        }
+    </style>
+</head>
+<body class="bg-yellow-50 text-slate-900 font-sans min-h-screen pb-24 text-base">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const rubricsData = {
+            standard: {
+                readingPron: {
+                    title: "语音、清晰度",
+                    max: 10,
+                    items: [
+                        { level: 1, scores: [9, 10], label: "非常准确、清晰", desc: "语音非常准确；非常清晰", feedback: "你的发音非常准确，字正腔圆，每一个字都读得非常清晰！" },
+                        { level: 2, scores: [7, 8], label: "相当准确、清晰", desc: "语音相当准确， 有许错误；相当清晰", feedback: "你的发音相当准确、清晰，只有少许的字音需要注意哦。" },
+                        { level: 3, scores: [5, 6], label: "还算准确、清晰", desc: "语音还算准确， 有较多错误；还算清晰", feedback: "你的发音还算清晰，但有一些字读错了，下次遇到不确定的字可以结合上下文猜一猜，平时也要多注意认字哦。" },
+                        { level: 4, scores: [3, 4], label: "不太准确、清晰", desc: "语音不太准确， 有相当多错误；不太清晰， 某些语音难以识别", feedback: "你的发音有些不太准确，部分字音老师听不太清楚，平时要多大声练习朗读。" },
+                        { level: 5, scores: [1, 2], label: "不准确、不清晰", desc: "语音不准确， 大多数的字都读错；不清晰", feedback: "这次朗读遇到了不少困难，很多字音不够准确。别灰心，跟着老师多读几遍一定能进步！" }
+                    ]
+                },
+                readingFluency: {
+                    title: "语调、流利度",
+                    max: 10,
+                    items: [
+                        { level: 1, scores: [9, 10], label: "非常流利", desc: "非常流利；语速适中， 停顿适当，毫不迟疑；语调正确， 有节奏感", feedback: "朗读非常流利，毫不迟疑！语调充满节奏感，像是在讲故事一样动听。" },
+                        { level: 2, scores: [7, 8], label: "相当流利", desc: "相当流利；语速相当适中， 停顿相当适当，甚少迟疑；语调相当正确， 有适当的变化", feedback: "朗读相当流利，甚少迟疑。语调有适当的变化，听起来很自然。" },
+                        { level: 3, scores: [5, 6], label: "还算流利", desc: "还算流利；语速还算适中， 停顿还算适当，较多迟疑；语调还算正确， 有些许变化", feedback: "朗读还算流利，虽然有些许迟疑和停顿，但语调还是有变化的，继续加油！" },
+                        { level: 4, scores: [3, 4], label: "不太流利", desc: "不太流利；语速不太适中， 停顿不太适当；语调不太正确， 偶尔变化", feedback: "朗读不太流利，停顿稍显不当。下次试着把句子看完整再读，语调会更好哦。" },
+                        { level: 5, scores: [1, 2], label: "不流利", desc: "不流利；语速不适中， 停顿不适当；语调不正确， 没有变化", feedback: "朗读不够流利，停顿不太合适。我们可以先从一句一句慢慢读开始，不用着急。" }
+                    ]
+                },
+                convResponse: {
+                    title: "个人意见的回应和发展",
+                    max: 15,
+                    items: [
+                        { level: 1, scores: [13, 14, 15], label: "极引导，持续交流", desc: "需要极少的引导；能够做出全面的回应和充分地扩展个人看法；能够参与对话和持续地交流", feedback: "你在会话时表现得非常自信！几乎不需要老师的引导，就能全面地表达自己的想法，而且能和老师进行持续、深入的交流，太棒了！" },
+                        { level: 2, scores: [10, 11, 12], label: "偶尔引导，能够交流", desc: "偶尔需要引导；能够做出全面的回应和扩展某些看法；能够参与对话和大部分时间能交流", feedback: "你在交流时表现得很不错！只需要老师偶尔提醒，就能很好地表达并扩展自己的看法，大部分时间都能顺畅互动。" },
+                        { level: 3, scores: [7, 8, 9], label: "需常引导，偶尔交流", desc: "需要经常引导；能够做出充分的回应和扩展某些看法；能够参与对话，偶尔也能交流", feedback: "在老师的引导下，你能够说出自己的看法。如果下次能再大胆一点，主动多说一些自己的经历或想法，减少对老师提问的依赖，就更好了！" },
+                        { level: 4, scores: [4, 5, 6], label: "不断引导，些许回应", desc: "需要不断地引导；能够做出一些的回应，却无法扩展看法；几乎无法参与对话，也无法交流", feedback: "这次会话对你来说可能有些挑战，需要老师不断地引导才能做出简单的回应。希望你以后多观察生活，勇敢地把心里的想法表达出来哦。" },
+                        { level: 5, scores: [1, 2, 3], label: "不断引导，无法交流", desc: "需要不断地引导；几乎无法回应；无法参与对话，也无法交流", feedback: "这次交流显得比较紧张，很难回应老师的问题。没关系，我们可以从简单的日常对话开始练习，慢慢培养自信，老师陪你一起努力！" }
+                    ]
+                },
+                convLanguage: {
+                    title: "语文表达和流利度",
+                    max: 15,
+                    items: [
+                        { level: 1, scores: [13, 14, 15], label: "词汇丰富，流利清晰", desc: "使用丰富和适当的词语；说话流利、清晰", feedback: "你使用了非常丰富且恰当的好词好句，说话流利又清晰，让人听得津津有味！" },
+                        { level: 2, scores: [10, 11, 12], label: "词汇适当，一般流利", desc: "大部分时间使用丰富和适当的词汇；说话一般流利、清晰", feedback: "你的词汇量很不错，大部分时间都能用到恰当的词语，说话也清楚流利。" },
+                        { level: 3, scores: [7, 8, 9], label: "基本词汇，文句简单", desc: "使用基本的词汇，偶尔不适当；说话一般流利，但文句较简单", feedback: "你能用基本的词汇表达意思，句子虽然简单但也算通顺。平时可以多阅读，积累一些生动的词语，会让你的表达更精彩哦！" },
+                        { level: 4, scores: [4, 5, 6], label: "用词不当，犹豫不流利", desc: "使用基本但不适当的词汇；说话不清楚，也不流利，有些犹豫", feedback: "表达时遇到了一些小困难，说话有时会犹豫，用词也不够准确。平时多大声朗读，多练习说话，慢慢就会顺畅起来。" },
+                        { level: 5, scores: [1, 2, 3], label: "词汇有限，不时停顿", desc: "使用非常有限的词汇；说话不清楚，也不流利，而且不时停顿", feedback: "表达时显得有些吃力，词汇量也比较有限。别灰心，多听多看多读，慢慢积累词语，你一定会进步的！" }
+                    ]
+                }
+            },
+            foundation: {
+                readingPron: {
+                    title: "语音和清晰度",
+                    max: 15,
+                    items: [
+                        { level: 1, scores: [13, 14, 15], label: "语音准确，清晰", desc: "语音准确；语音清晰", feedback: "你的发音准确，咬字清晰，表现得很棒！" },
+                        { level: 2, scores: [10, 11, 12], label: "相当准确，少许错误", desc: "语音相当准确，有少许错误；语音相当清晰", feedback: "你的发音相当准确、清晰，只有少许的字音需要注意。" },
+                        { level: 3, scores: [7, 8, 9], label: "还算准确，较多错误", desc: "语音还算准确，有较多错误；语音还算清晰", feedback: "你的发音还算清晰，但有较多字读错了，平时要多注意认字哦。" },
+                        { level: 4, scores: [4, 5, 6], label: "不太准确，相当多错误", desc: "语音不太准确，相当多错误；语音不太清晰，某些语音难以识别", feedback: "你的发音不太准确，部分字音老师听不太清楚，平时要多大声练习朗读。" },
+                        { level: 5, scores: [1, 2, 3], label: "不准确，大多读错", desc: "语音不准确，大多数的字都读错；语音不清晰", feedback: "这次朗读遇到了不少困难，很多字音不够准确。别灰心，跟着老师多读几遍一定能进步！" }
+                    ]
+                },
+                readingFluency: {
+                    title: "语速、语调和流利度",
+                    max: 15,
+                    items: [
+                        { level: 1, scores: [13, 14, 15], label: "流利，停顿适当", desc: "流利，语速适中，停顿适当，毫不迟疑；语调正确，有节奏感", feedback: "朗读流利，语速适中，停顿适当，语调有节奏感，非常好！" },
+                        { level: 2, scores: [10, 11, 12], label: "相当流利", desc: "相当流利，语速相当适中，停顿相当适当，甚少迟疑；语调相当正确，有适当的变化", feedback: "朗读相当流利，停顿适当，语调也有适当的变化，听起来很自然。" },
+                        { level: 3, scores: [7, 8, 9], label: "还算流利，较多迟疑", desc: "还算流利，语速还算适中，停顿还算恰当，较多迟疑；语调还算正确，有些许变化", feedback: "朗读还算流利，虽然有些许迟疑和停顿，但语调还是有变化的，继续加油！" },
+                        { level: 4, scores: [4, 5, 6], label: "不太流利，停顿不当", desc: "不太流利，语速不太适中，停顿不太适当；语调不太正确，偶尔有变化", feedback: "朗读不太流利，停顿稍显不当。下次试着把句子看完整再读，语调会更好哦。" },
+                        { level: 5, scores: [1, 2, 3], label: "不流利，很多未读", desc: "不流利，很多字没有读；语速不适中，停顿不适当；语调不正确，没有变化", feedback: "朗读不够流利，有很多字没有读。我们可以先从简单的句子慢慢读开始，不用着急。" }
+                    ]
+                },
+                convResponse: {
+                    title: "个人意见的回应和发展",
+                    max: 20,
+                    items: [
+                        { level: 1, scores: [17, 18, 19, 20], label: "极少引导，充分扩展", desc: "需要极少的引导；能够做出充分的回应和扩展个人看法；能够参与对话和持续地交流", feedback: "你在会话时表现得非常自信！几乎不需要老师引导，就能充分扩展看法，持续交流。" },
+                        { level: 2, scores: [13, 14, 15, 16], label: "偶尔引导，充分回应", desc: "偶尔需要引导；能够做出充分的回应和扩展某些看法；能够参与对话和大部分时间能交流", feedback: "你在交流时表现不错！偶尔需要引导就能充分回应并扩展看法，大部分时间都能顺畅互动。" },
+                        { level: 3, scores: [9, 10, 11, 12], label: "需常引导，偶尔交流", desc: "需要经常引导；能够做出回应和扩展某些看法；能够参与对话，偶尔也能交流", feedback: "在老师的引导下，你能够做出回应并扩展一些看法。下次试着主动多说一些就更好了！" },
+                        { level: 4, scores: [5, 6, 7, 8], label: "不断引导，无法扩展", desc: "需要不断地引导；能够做出一些回应却无法扩展看法；几乎无法参与对话，也无法交流", feedback: "这次会话需要老师不断引导才能做出简单回应。希望你以后多观察生活，勇敢表达想法。" },
+                        { level: 5, scores: [1, 2, 3, 4], label: "不断引导，几乎无回应", desc: "需要不断地引导；几乎无法回应；无法参与对话，也无法交流", feedback: "这次交流比较困难，几乎无法回应。没关系，我们可以从简单的日常对话开始练习。" }
+                    ]
+                },
+                convLanguage: {
+                    title: "语文表达和流利度",
+                    max: 20,
+                    items: [
+                        { level: 1, scores: [17, 18, 19, 20], label: "词汇适当，流利清晰", desc: "使用适当的词汇；说话流利、清晰", feedback: "你使用了适当的词汇，说话流利又清晰，让人听得津津有味！" },
+                        { level: 2, scores: [13, 14, 15, 16], label: "词汇大体适当，一般流利", desc: "大部分时间使用适当的词汇；说话一般流利清晰", feedback: "你大部分时间都能用到适当的词汇，说话也清楚流利。" },
+                        { level: 3, scores: [9, 10, 11, 12], label: "基本词汇，文句简单", desc: "使用基本的词汇，偶尔不适当；说话一般流利，但文句较简单", feedback: "你能用基本的词汇表达意思，句子虽然简单但也算通顺，继续多读多积累哦！" },
+                        { level: 4, scores: [5, 6, 7, 8], label: "用词不当，有些犹豫", desc: "使用基本但不适当的词汇；说话不清楚，也不流利，有些犹豫", feedback: "表达时遇到了一些小困难，说话有时会犹豫，用词也不够准确，多练习说话慢慢会好的。" },
+                        { level: 5, scores: [1, 2, 3, 4], label: "词汇有限，不时停顿", desc: "使用非常有限的词汇；说话不清楚、也不流利，而且不时停顿", feedback: "表达时显得吃力，词汇量比较有限。别灰心，多听多看多读，一定会进步的！" }
+                    ]
+                }
+            }
+        };
+
+        const examinersList = [
+            'CHEN JINGJING', 'CHIA AI TIAN', 'CHONG SHI YAN', 'DONG JINGJING', 
+            'FOO SIEW YEE', 'HAO XIAOXING', 'HU YULAN', 'HUANG YAO TIAN', 
+            'LIM LEE CHOON', 'LIN YUSHI', 'PENG YUANZHEN', 'POH YEU PEI', 
+            'SU WAN JU', 'TAN HUI JUAI', 'TEY SIEW LENG', 'YEO WEE KIANG', 
+            'ZHENG LIDAN'
+        ];
+
+        const teamExaminers = {
+            standard: {
+                1: ['ZHENG LIDAN'],
+                2: ['PENG YUANZHEN'],
+                3: ['LIN YUSHI'],
+                4: ['POH YEU PEI'],
+                5: ['DONG JINGJING'],
+                6: ['HAO XIAOXING', 'TAN HUI JUAI', 'CHEN JINGJING'],
+                7: ['FOO SIEW YEE', 'TAN HUI JUAI', 'CHEN JINGJING'],
+                8: ['SU WAN JU'],
+                9: ['HUANG YAO TIAN'],
+                10: ['HU YULAN']
+            },
+            foundation: {
+                1: ['LIM LEE CHOON']
+            }
+        };
+
+        const defaultRoster = [
+            // 5CL1 (Standard)
+            { team: 3, class: 'P5-H', mtl: '5CL1', name: 'CHAN ZHI YANG' },
+            { team: 3, class: 'P5-H', mtl: '5CL1', name: 'CHLOE ONG XIN JING' },
+            { team: 4, class: 'P5-H', mtl: '5CL1', name: 'FU YANYI' },
+            { team: 4, class: 'P5-H', mtl: '5CL1', name: 'GENG RUIKANG' },
+            { team: 4, class: 'P5-H', mtl: '5CL1', name: 'GRACE TANG XUAN YING' },
+            { team: 4, class: 'P5-H', mtl: '5CL1', name: 'HO YU HANG, CAYDEN' },
+            { team: 3, class: 'P5-H', mtl: '5CL1', name: 'LEE HONG EN' },
+            { team: 3, class: 'P5-H', mtl: '5CL1', name: 'LIM YIN EN LEILA' },
+            { team: 3, class: 'P5-H', mtl: '5CL1', name: 'QIN XIYA' },
+            { team: 3, class: 'P5-H', mtl: '5CL1', name: 'SAMANTHA LEE QI SHAN' },
+            { team: 4, class: 'P5-H', mtl: '5CL1', name: 'SOONG XIN HUI, EMMA' },
+            { team: 4, class: 'P5-H', mtl: '5CL1', name: 'SOPHIE REBECCA TAN ZE HUI' },
+            { team: 4, class: 'P5-H', mtl: '5CL1', name: 'TAN SU HUI JESSICA' },
+            { team: 4, class: 'P5-H', mtl: '5CL1', name: 'TAY HUI EN, ASHLYN' },
+            { team: 4, class: 'P5-H', mtl: '5CL1', name: 'TOH YU XIN, IRIS' },
+            { team: 4, class: 'P5-H', mtl: '5CL1', name: 'ZHOU LINGLU' },
+            { team: 5, class: 'P5-I', mtl: '5CL1', name: 'ADELE TIEW TING XUAN' },
+            { team: 5, class: 'P5-I', mtl: '5CL1', name: 'ASHTON FOO HONG YU' },
+            { team: 5, class: 'P5-I', mtl: '5CL1', name: 'CHAN YENN CHENG' },
+            { team: 5, class: 'P5-I', mtl: '5CL1', name: 'CHIA XILEI VALERIE' },
+            { team: 6, class: 'P5-I', mtl: '5CL1', name: 'COCO ZHANG XIAOKE' },
+            { team: 6, class: 'P5-I', mtl: '5CL1', name: 'FOK XIANG YU OWEN' },
+            { team: 6, class: 'P5-I', mtl: '5CL1', name: 'ISAAC TAN JINGHAN' },
+            { team: 5, class: 'P5-I', mtl: '5CL1', name: 'LEE JING ZI' },
+            { team: 6, class: 'P5-I', mtl: '5CL1', name: 'LIN, OLIVIA JINGXUAN' },
+            { team: 10, class: 'P5-I', mtl: '5CL1', name: 'TAN ENG TENG, CHARLOTTE' },
+            { team: 10, class: 'P5-I', mtl: '5CL1', name: 'TAN HONG HAO' },
+            { team: 6, class: 'P5-I', mtl: '5CL1', name: 'ZEYA SITHU JUN BO' },
+            { team: 10, class: 'P5-RS', mtl: '5CL1', name: 'JUAY IAN' },
+            { team: 10, class: 'P5-RS', mtl: '5CL1', name: 'KYLER POH KY-LE' },
+            { team: 8, class: 'P5-RS', mtl: '5CL1', name: 'LEW YA WEI' },
+            { team: 8, class: 'P5-RS', mtl: '5CL1', name: 'LIN YICHEN' },
+            { team: 9, class: 'P5-RS', mtl: '5CL1', name: 'TAN CADEN JINYANG' },
+            { team: 9, class: 'P5-RS', mtl: '5CL1', name: 'YIP ZI XUAN' },
+            { team: 9, class: 'P5-RS', mtl: '5CL1', name: 'ZOE YEO LE LE' },
+
+            // 5CL2 (Standard)
+            { team: 1, class: 'P5-C', mtl: '5CL2', name: 'ALIYA PORTENLAENGER' },
+            { team: 1, class: 'P5-C', mtl: '5CL2', name: 'WAYNE LEE' },
+            { team: 1, class: 'P5-C', mtl: '5CL2', name: 'ZENICE THEN YING XUAN' },
+            { team: 2, class: 'P5-E', mtl: '5CL2', name: 'DAWN LEONG XIN WEN' },
+            { team: 10, class: 'P5-E', mtl: '5CL2', name: 'YANG CHENFEI' },
+            { team: 3, class: 'P5-H', mtl: '5CL2', name: 'CHARLENE CHIA GIA HEE' },
+            { team: 4, class: 'P5-H', mtl: '5CL2', name: 'IAN ONG ZHI HONG' },
+            { team: 3, class: 'P5-H', mtl: '5CL2', name: 'LIN JUN FUNG, AARON' },
+            { team: 3, class: 'P5-H', mtl: '5CL2', name: 'RYAN NG YI SHENG' },
+            { team: 4, class: 'P5-H', mtl: '5CL2', name: 'TEO EN ZHI ASAPH' },
+            { team: 4, class: 'P5-H', mtl: '5CL2', name: 'ZHENG HAN AZIEL' },
+            { team: 5, class: 'P5-I', mtl: '5CL2', name: 'ASHLEY LIN NANXUAN' },
+            { team: 5, class: 'P5-I', mtl: '5CL2', name: 'CHEN ZE' },
+            { team: 5, class: 'P5-I', mtl: '5CL2', name: 'JAMES LIM ZUN SHENG' },
+            { team: 5, class: 'P5-I', mtl: '5CL2', name: 'KAN SENRI' },
+            { team: 6, class: 'P5-I', mtl: '5CL2', name: 'LEONG YIN FUNG' },
+            { team: 10, class: 'P5-I', mtl: '5CL2', name: 'TITUS LOH CHEE LOONG' },
+            { team: 10, class: 'P5-I', mtl: '5CL2', name: 'YANG HONGYUE' },
+            { team: 8, class: 'P5-RS', mtl: '5CL2', name: 'CHEE XUAN HUI' },
+            { team: 8, class: 'P5-RS', mtl: '5CL2', name: 'CHIA XIN XUAN ASHLYN' },
+            { team: 8, class: 'P5-RS', mtl: '5CL2', name: 'CHLOE YAN LE QI' },
+            { team: 8, class: 'P5-RS', mtl: '5CL2', name: 'OLIVIA TAN' },
+            { team: 8, class: 'P5-RS', mtl: '5CL2', name: 'ONG JIA FENG JACOB' },
+            { team: 8, class: 'P5-RS', mtl: '5CL2', name: 'OWEN TAN' },
+            { team: 9, class: 'P5-RS', mtl: '5CL2', name: 'TONG ZHI KAI' },
+            { team: 9, class: 'P5-RS', mtl: '5CL2', name: 'ZAK FONG CHI NGAI' },
+
+            // 5CL3 (Standard)
+            { team: 1, class: 'P5-C', mtl: '5CL3', name: 'AMELIA ONG HUI TING' },
+            { team: 1, class: 'P5-C', mtl: '5CL3', name: 'CHAN YAN REN, DAMIEN' },
+            { team: 1, class: 'P5-C', mtl: '5CL3', name: 'DANELLE GOH LIN YU' },
+            { team: 1, class: 'P5-C', mtl: '5CL3', name: 'LEE XUE LIN AUDRIC' },
+            { team: 1, class: 'P5-C', mtl: '5CL3', name: 'LIU XING CHEN' },
+            { team: 1, class: 'P5-C', mtl: '5CL3', name: 'RYNN SIOW YI XIN' },
+            { team: 2, class: 'P5-E', mtl: '5CL3', name: 'CHAI BO EN KALEB' },
+            { team: 2, class: 'P5-E', mtl: '5CL3', name: 'CHIN HNG YING ADELE' },
+            { team: 2, class: 'P5-E', mtl: '5CL3', name: 'EDEN CHEN JINYANG' },
+            { team: 2, class: 'P5-E', mtl: '5CL3', name: 'FU YUELIN, NICHOLAS' },
+            { team: 10, class: 'P5-E', mtl: '5CL3', name: 'LEE YANG YI' },
+            { team: 2, class: 'P5-E', mtl: '5CL3', name: 'VERA LIM YU EN' },
+            { team: 2, class: 'P5-E', mtl: '5CL3', name: 'XIONG YILIN SELENE' },
+            { team: 2, class: 'P5-E', mtl: '5CL3', name: 'YAU XIN YI LIVIA' },
+            { team: 8, class: 'P5-RS', mtl: '5CL3', name: 'CALLUM CHIN TZE HIN' },
+            { team: 8, class: 'P5-RS', mtl: '5CL3', name: 'COOPER GUO' },
+            { team: 8, class: 'P5-RS', mtl: '5CL3', name: 'ETHAN TAN' },
+            { team: 8, class: 'P5-RS', mtl: '5CL3', name: 'GEMMA TUN CHENG EN YU' },
+            { team: 9, class: 'P5-RS', mtl: '5CL3', name: 'GERALDINE LEE YIN XI' },
+            { team: 9, class: 'P5-RS', mtl: '5CL3', name: 'GWEN OH YU XUAN' },
+            { team: 9, class: 'P5-RS', mtl: '5CL3', name: 'HAN QIN LIN NICOLE' },
+            { team: 9, class: 'P5-RS', mtl: '5CL3', name: 'HO RUI NING KEIRA' },
+            { team: 9, class: 'P5-RS', mtl: '5CL3', name: 'HO YI KAI' },
+            { team: 9, class: 'P5-RS', mtl: '5CL3', name: 'JEROME JAP' },
+            { team: 9, class: 'P5-RS', mtl: '5CL3', name: 'JERRIC SEOW JING HENG' },
+            { team: 10, class: 'P5-RS', mtl: '5CL3', name: 'KIARA GALETTI' },
+            { team: 8, class: 'P5-RS', mtl: '5CL3', name: 'LIM YI XUAN JOVIN' },
+            { team: 8, class: 'P5-RS', mtl: '5CL3', name: 'OEI ABIGAIL' },
+            { team: 8, class: 'P5-RS', mtl: '5CL3', name: 'SHANA TEO YIN' },
+            { team: 8, class: 'P5-RS', mtl: '5CL3', name: 'SHANE KANG' },
+            { team: 9, class: 'P5-RS', mtl: '5CL3', name: 'TEE HAO YUAN ZACHARY' },
+            { team: 9, class: 'P5-RS', mtl: '5CL3', name: 'TOH YAN RUI RYAN' },
+            { team: 9, class: 'P5-RS', mtl: '5CL3', name: 'WOO JIA LE CODY' },
+            { team: 9, class: 'P5-RS', mtl: '5CL3', name: 'YAP YHEW SOOND DAVID' },
+
+            // 5CL4 (Standard)
+            { team: 3, class: 'P5-H', mtl: '5CL4', name: 'ADA MAK' },
+            { team: 3, class: 'P5-H', mtl: '5CL4', name: 'ARIA ELENA FLOROIU' },
+            { team: 3, class: 'P5-H', mtl: '5CL4', name: 'CHUA WOO KIAT JUSTAN' },
+            { team: 3, class: 'P5-H', mtl: '5CL4', name: 'CLARICE CHIAM XIN MIN' },
+            { team: 3, class: 'P5-H', mtl: '5CL4', name: 'EE RONG EN ESHER' },
+            { team: 4, class: 'P5-H', mtl: '5CL4', name: 'HO ON HOI, MATTHIAS' },
+            { team: 3, class: 'P5-H', mtl: '5CL4', name: 'LEONG MIN XUAN KAYLEY' },
+            { team: 3, class: 'P5-H', mtl: '5CL4', name: 'LIM JIA JET' },
+            { team: 3, class: 'P5-H', mtl: '5CL4', name: 'MILAN GUNALAN' },
+            { team: 4, class: 'P5-H', mtl: '5CL4', name: 'TAN KAI XUAN ASHER' },
+            { team: 4, class: 'P5-H', mtl: '5CL4', name: 'TAN KE YU EVAN' },
+            { team: 10, class: 'P5-H', mtl: '5CL4', name: 'WONG SHIYA ANGELA' },
+            { team: 5, class: 'P5-I', mtl: '5CL4', name: 'CHERRIN LOO YUN XI' },
+            { team: 6, class: 'P5-I', mtl: '5CL4', name: 'CHUT KAI JIE DAMIEN' },
+            { team: 6, class: 'P5-I', mtl: '5CL4', name: 'GARETH LEE YI JING' },
+            { team: 5, class: 'P5-I', mtl: '5CL4', name: 'JUBILEE TAN LE XIN' },
+            { team: 5, class: 'P5-I', mtl: '5CL4', name: 'KENZO SEBASTIAN WIDJAJA' },
+            { team: 5, class: 'P5-I', mtl: '5CL4', name: 'KIM SI ON' },
+            { team: 5, class: 'P5-I', mtl: '5CL4', name: 'LEANNE SOON LI HUA' },
+            { team: 6, class: 'P5-I', mtl: '5CL4', name: 'LEE KAH HIONG' },
+            { team: 6, class: 'P5-I', mtl: '5CL4', name: 'LIM EN QI, ZOANN' },
+            { team: 6, class: 'P5-I', mtl: '5CL4', name: 'NATALIE POH ZHUO YING' },
+            { team: 6, class: 'P5-I', mtl: '5CL4', name: 'SOO WEN QI' },
+            { team: 6, class: 'P5-I', mtl: '5CL4', name: 'SOPHIE POH ZHUO XUAN' },
+            { team: 10, class: 'P5-I', mtl: '5CL4', name: 'WONG PENG YI MICHAEL' },
+            { team: 7, class: 'P5-O', mtl: '5CL4', name: 'CHUA CHEONG YONG' },
+            { team: 7, class: 'P5-O', mtl: '5CL4', name: 'HONG RAEAH' },
+            { team: 7, class: 'P5-O', mtl: '5CL4', name: 'TANG KAI QI' },
+            { team: 7, class: 'P5-O', mtl: '5CL4', name: 'THAM JUN DA' },
+            { team: 7, class: 'P5-O', mtl: '5CL4', name: 'TOH ZHENG YU' },
+            { team: 7, class: 'P5-O', mtl: '5CL4', name: 'YEO KAI WEN DARREN' },
+
+            // 5CL5 (Standard)
+            { team: 1, class: 'P5-C', mtl: '5CL5', name: 'HO HUI XUAN EMILY' },
+            { team: 1, class: 'P5-C', mtl: '5CL5', name: 'JOSHUA ONG' },
+            { team: 1, class: 'P5-C', mtl: '5CL5', name: 'MICHAEL HIROKI GOH ZHI LIM' },
+            { team: 1, class: 'P5-C', mtl: '5CL5', name: 'NG JING KAI, SHANE' },
+            { team: 1, class: 'P5-C', mtl: '5CL5', name: 'SEAH YU EN, ISABELLE' },
+            { team: 1, class: 'P5-C', mtl: '5CL5', name: 'SEETOH YU' },
+            { team: 1, class: 'P5-C', mtl: '5CL5', name: 'THENG JUN JIE JAYDEN' },
+            { team: 1, class: 'P5-C', mtl: '5CL5', name: 'TRISTAN NGO JUN DE' },
+            { team: 2, class: 'P5-E', mtl: '5CL5', name: 'ELIAS ECHEVERRI SOLANO' },
+            { team: 2, class: 'P5-E', mtl: '5CL5', name: 'ELIJAH PAU SIAN TUANG' },
+            { team: 2, class: 'P5-E', mtl: '5CL5', name: 'JAIRUS TENG KANG HAO' },
+            { team: 10, class: 'P5-E', mtl: '5CL5', name: 'JOSHUA LEONG YONG YI' },
+            { team: 10, class: 'P5-E', mtl: '5CL5', name: 'LEE SHI CEN' },
+            { team: 2, class: 'P5-E', mtl: '5CL5', name: 'LIM XIN YI' },
+            { team: 2, class: 'P5-E', mtl: '5CL5', name: 'LIW TAT MAN HAU YEONG EDWARD' },
+            { team: 2, class: 'P5-E', mtl: '5CL5', name: 'REANNE LIM' },
+            { team: 2, class: 'P5-E', mtl: '5CL5', name: 'REUBEN VALEN TAN' },
+            { team: 2, class: 'P5-E', mtl: '5CL5', name: 'TYTUS CHEONG JYU THY' },
+            { team: 2, class: 'P5-E', mtl: '5CL5', name: 'YU ENQING' },
+            { team: 8, class: 'P5-RS', mtl: '5CL5', name: 'CHUAH SUH-RIN' },
+
+            // 5CL6 (Standard)
+            { team: 4, class: 'P5-H', mtl: '5CL6', name: 'TEO LUCAS' },
+            { team: 10, class: 'P5-H', mtl: '5CL6', name: 'TYLER NG YU LIN' },
+            { team: 6, class: 'P5-I', mtl: '5CL6', name: 'CHONG HAN JIE CEPHAS' },
+            { team: 5, class: 'P5-I', mtl: '5CL6', name: 'KAYSON CHEW KAI SHEN' },
+            { team: 6, class: 'P5-I', mtl: '5CL6', name: 'LOUISA MAE GHEORGHIU' },
+            { team: 7, class: 'P5-O', mtl: '5CL6', name: 'CHEONG RUI EN ANASTASIA' },
+            { team: 7, class: 'P5-O', mtl: '5CL6', name: 'CLAIRE CHENG YING XUAN' },
+            { team: 7, class: 'P5-O', mtl: '5CL6', name: 'DYLAN YAN LE BIN' },
+            { team: 7, class: 'P5-O', mtl: '5CL6', name: 'JAVIN SU JIE' },
+            { team: 7, class: 'P5-O', mtl: '5CL6', name: 'KATERI MYAT NOE TUN' },
+            { team: 7, class: 'P5-O', mtl: '5CL6', name: 'LUCAS PUA' },
+            { team: 10, class: 'P5-O', mtl: '5CL6', name: 'MATTHIAS ONG' },
+            { team: 7, class: 'P5-O', mtl: '5CL6', name: 'MICHELLE TAN YING XIAN' },
+            { team: 7, class: 'P5-O', mtl: '5CL6', name: 'TAN YU XIN, ISABELLA' },
+            { team: 7, class: 'P5-O', mtl: '5CL6', name: 'YEO FENG KAI, KELLAN' },
+            { team: 7, class: 'P5-O', mtl: '5CL6', name: 'WON TIAN ZE' },
+            { team: 7, class: 'P5-O', mtl: '5CL6', name: 'NGUYEN KASSIE' },
+
+            // 5FCL7 (Foundation ONLY)
+            { team: 1, class: 'P5-C', mtl: '5FCL7', name: 'ADAM ELIJAH HUGO KOH WEE BOON' },
+            { team: 1, class: 'P5-C', mtl: '5FCL7', name: 'AIDEN NG JIA LE' },
+            { team: 1, class: 'P5-C', mtl: '5FCL7', name: 'DRACO LUCIEN TAN' },
+            { team: 1, class: 'P5-C', mtl: '5FCL7', name: 'EZEKIEL CHAN RUI ZHE' },
+            { team: 1, class: 'P5-C', mtl: '5FCL7', name: 'SWA XIAO DONG SHELDON' },
+            { team: 1, class: 'P5-E', mtl: '5FCL7', name: 'JOYEL TAN' },
+            { team: 1, class: 'P5-O', mtl: '5FCL7', name: 'JAYLENE SIM JIAXIN' },
+            { team: 1, class: 'P5-O', mtl: '5FCL7', name: 'ZACHARIAH GABRIEL LIM YONG KWANG' }
+        ];
+
+        const App = () => {
+            const [syllabus, setSyllabus] = useState('standard'); 
+            const [student, setStudent] = useState({ team: '', class: '', mtl: '', name: '' });
+            const [scores, setScores] = useState({ readingPron: 0, readingFluency: 0, convResponse: 0, convLanguage: 0 });
+            const [selections, setSelections] = useState({ readingPron: null, readingFluency: null, convResponse: null, convLanguage: null });
+            
+            const [feedbackText, setFeedbackText] = useState('');
+            const [lastAutoText, setLastAutoText] = useState('');
+
+            // Updated Google Apps Script Web App URL
+            const gasUrl = 'https://script.google.com/macros/s/AKfycbzS93etfFdNTnZKCuapCtR3in4EnbpZV8jkcutLMLdSPao-pbBAE1-MoPH3TXRT1AIcog/exec';
+            const [submitStatus, setSubmitStatus] = useState('idle');
+            const [pdfStatus, setPdfStatus] = useState('');
+            
+            const [currentExaminer, setCurrentExaminer] = useState('');
+
+            const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'alert', onConfirm: null, isSuccess: false });
+
+            const [roster, setRoster] = useState(defaultRoster);
+
+            const currentRoster = useMemo(() => {
+                if (syllabus === 'foundation') {
+                    return roster.filter(s => s.mtl === '5FCL7');
+                } else {
+                    return roster.filter(s => s.mtl !== '5FCL7');
+                }
+            }, [roster, syllabus]);
+
+            const currentRubrics = rubricsData[syllabus];
+
+            // Calculations based on syllabus rules:
+            // Standard: Reading = 10+10 = 20, Conv = 15+15 = 30, Total = 50
+            // Foundation: Reading Combined = (15+15)/2 = 15, Conv = 20+20 = 40, Total = 55
+            const isFoundation = syllabus === 'foundation';
+            const readingCombined = isFoundation 
+                ? (Number(scores.readingPron) + Number(scores.readingFluency)) / 2 
+                : Number(scores.readingPron) + Number(scores.readingFluency);
+            
+            const convTotal = Number(scores.convResponse) + Number(scores.convLanguage);
+            const grandTotal = readingCombined + convTotal;
+
+            const maxReading = isFoundation ? 15 : 20;
+            const maxConv = isFoundation ? 40 : 30;
+            const maxTotal = isFoundation ? 55 : 50;
+
+            const generatedReadingFeedback = useMemo(() => {
+                let fb = [];
+                if (selections.readingPron !== null) fb.push(currentRubrics.readingPron.items[selections.readingPron].feedback);
+                if (selections.readingFluency !== null) fb.push(currentRubrics.readingFluency.items[selections.readingFluency].feedback);
+                return fb.join(" ");
+            }, [selections, currentRubrics]);
+
+            const generatedConvFeedback = useMemo(() => {
+                let fb = [];
+                if (selections.convResponse !== null) fb.push(currentRubrics.convResponse.items[selections.convResponse].feedback);
+                if (selections.convLanguage !== null) fb.push(currentRubrics.convLanguage.items[selections.convLanguage].feedback);
+                return fb.join(" ");
+            }, [selections, currentRubrics]);
+
+            const generatedFeedback = useMemo(() => {
+                let parts = [];
+                if (generatedReadingFeedback) parts.push(`【朗读】\n${generatedReadingFeedback}`);
+                if (generatedConvFeedback) parts.push(`【会话】\n${generatedConvFeedback}`);
+                return parts.join("\n\n");
+            }, [generatedReadingFeedback, generatedConvFeedback]);
+
+            useEffect(() => {
+                setFeedbackText((currentText) => {
+                    if (!currentText || currentText === lastAutoText) {
+                        return generatedFeedback;
+                    }
+                    if (lastAutoText && currentText.includes(lastAutoText)) {
+                        return currentText.replace(lastAutoText, generatedFeedback);
+                    }
+                    return generatedFeedback;
+                });
+                setLastAutoText(generatedFeedback);
+            }, [generatedFeedback]);
+
+            const handleSyllabusChange = (newSyllabus) => {
+                if (newSyllabus === syllabus) return;
+
+                const switchAction = () => {
+                    setSyllabus(newSyllabus);
+                    setStudent({ team: '', class: '', mtl: '', name: '' });
+                    clearScores();
+                };
+
+                const hasScores = Object.values(scores).some(val => val > 0);
+                if (hasScores) {
+                    setDialog({
+                        isOpen: true,
+                        title: '切换评分准则',
+                        message: '切换课程类别将清空当前已打的分数和评语，是否继续？',
+                        type: 'confirm',
+                        onConfirm: switchAction
+                    });
+                } else {
+                    switchAction();
+                }
+            };
+
+            const clearScores = () => {
+                setScores({ readingPron: 0, readingFluency: 0, convResponse: 0, convLanguage: 0 });
+                setSelections({ readingPron: null, readingFluency: null, convResponse: null, convLanguage: null });
+                setFeedbackText('');
+            };
+
+            const handleSelect = (category, itemIndex, selectedScore) => {
+                setSelections(prev => ({ ...prev, [category]: itemIndex }));
+                setScores(prev => ({ ...prev, [category]: selectedScore }));
+            };
+
+            const handleScoreChange = (category, value) => {
+                let num = parseInt(value) || 0;
+                if (num > currentRubrics[category].max) num = currentRubrics[category].max;
+                setScores(prev => ({ ...prev, [category]: num }));
+                setSelections(prev => ({ ...prev, [category]: null })); 
+            };
+
+            const handleExaminerChange = (e) => {
+                const val = e.target.value;
+                setCurrentExaminer(val);
+                localStorage.setItem('oralExamExaminer', val);
+            };
+
+            const handleSavePDF = async () => {
+                const rawFileName = student.name
+                    ? `${student.class}_${student.name}_口试反馈.pdf`
+                    : `口试反馈单_${student.class || '未选择班级'}.pdf`;
+                const fileName = rawFileName.replace(/[\\/:*?"<>|]/g, '_');
+
+                const source = document.querySelector('.print-container');
+                if (!source) {
+                    setDialog({ isOpen: true, title: '无法保存', message: '找不到口试反馈单内容。', type: 'alert' });
+                    return;
+                }
+
+                if (typeof html2pdf === 'undefined') {
+                    setDialog({ isOpen: true, title: 'PDF 功能未载入', message: 'PDF 组件未能载入。请确认网络连接正常，然后刷新页面再试。', type: 'alert' });
+                    return;
+                }
+
+                setPdfStatus('正在生成 PDF…');
+
+                const staging = document.createElement('div');
+                staging.style.position = 'fixed';
+                staging.style.left = '-100000px';
+                staging.style.top = '0';
+                staging.style.width = '794px';
+                staging.style.background = '#ffffff';
+                staging.style.zIndex = '-9999';
+
+                const clone = source.cloneNode(true);
+                clone.classList.remove('print-only');
+                clone.style.display = 'block';
+                clone.style.boxSizing = 'border-box';
+                clone.style.width = '100%';
+                clone.style.margin = '0';
+                clone.style.padding = '38px';
+                clone.style.background = '#ffffff';
+                clone.style.border = '2px solid #3b82f6';
+                clone.style.borderRadius = '16px';
+                staging.appendChild(clone);
+                document.body.appendChild(staging);
+
+                try {
+                    const options = {
+                        margin: [8, 8, 8, 8],
+                        filename: fileName,
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+                    };
+
+                    // Use html2pdf's built-in save/download path. This is more reliable
+                    // on GitHub Pages than the File System Access API (showSaveFilePicker).
+                    await html2pdf().set(options).from(clone).save();
+
+                    // Non-blocking success feedback: no extra confirmation click needed.
+                    setPdfStatus('✓ PDF 已生成');
+                    setTimeout(() => setPdfStatus(''), 2500);
+                } catch (error) {
+                    setPdfStatus('');
+                    console.error('PDF generation failed:', error);
+                    setDialog({
+                        isOpen: true,
+                        title: '保存失败',
+                        message: `无法生成 PDF。请刷新页面后再试。\n\n技术信息：${error && error.message ? error.message : 'Unknown error'}`,
+                        type: 'alert'
+                    });
+                } finally {
+                    staging.remove();
+                }
+            };
+
+            const availableTeams = useMemo(() => {
+                const teams = new Set(currentRoster.map(s => s.team).filter(Boolean));
+                return Array.from(teams).sort((a, b) => a - b);
+            }, [currentRoster]);
+
+            const availableFormClasses = useMemo(() => {
+                if (!student.team) return [];
+                const classes = new Set(currentRoster.filter(s => s.team === Number(student.team)).map(s => s.class).filter(Boolean));
+                return Array.from(classes).sort();
+            }, [currentRoster, student.team]);
+
+            const availableMTClasses = useMemo(() => {
+                if (!student.team || !student.class) return [];
+                const filtered = currentRoster.filter(s => s.team === Number(student.team) && s.class === student.class);
+                const mtClasses = new Set(filtered.map(s => s.mtl).filter(Boolean));
+                return Array.from(mtClasses).sort();
+            }, [currentRoster, student.team, student.class]);
+
+            const filteredStudents = useMemo(() => {
+                if (!student.team || !student.class || !student.mtl) return [];
+                return currentRoster.filter(s => s.team === Number(student.team) && s.class === student.class && s.mtl === student.mtl);
+            }, [currentRoster, student.team, student.class, student.mtl]);
+
+            const availableExaminers = useMemo(() => {
+                if (!student.team) return [];
+                return (teamExaminers[syllabus] && teamExaminers[syllabus][Number(student.team)]) || [];
+            }, [syllabus, student.team]);
+
+            useEffect(() => {
+                if (availableExaminers.length === 1) {
+                    setCurrentExaminer(availableExaminers[0]);
+                    localStorage.setItem('oralExamExaminer', availableExaminers[0]);
+                } else if (!availableExaminers.includes(currentExaminer)) {
+                    setCurrentExaminer('');
+                }
+            }, [student.team, syllabus]);
+
+            const handleTeamChange = (e) => {
+                const newTeam = e.target.value;
+                setStudent({ team: newTeam ? Number(newTeam) : '', class: '', mtl: '', name: '' });
+                clearScores();
+            };
+
+            const handleFormClassChange = (e) => {
+                const newClass = e.target.value;
+                setStudent({ ...student, class: newClass, mtl: '', name: '' });
+            };
+
+            const handleMTClassChange = (e) => {
+                const newMTL = e.target.value;
+                setStudent({ ...student, mtl: newMTL, name: '' });
+            };
+
+            const handleStudentSelect = (e) => {
+                const selectedName = e.target.value;
+                const found = currentRoster.find(s => s.name === selectedName && s.team === Number(student.team) && s.class === student.class && s.mtl === student.mtl);
+                if (found) setStudent(found);
+                else setStudent({ ...student, name: selectedName });
+            };
+
+            const handleSubmitGAS = async () => {
+                if (!student.name || !currentExaminer) {
+                    setDialog({ isOpen: true, title: '提示', message: '请确保填入学生姓名并选择主考老师。', type: 'alert' });
+                    return;
+                }
+
+                setSubmitStatus('loading');
+                
+                const payload = {
+                    teamNumber: student.team,
+                    className: student.class,
+                    indexNo: '',
+                    studentName: student.name,
+                    examiner: currentExaminer,
+                    mtl: student.mtl,
+                    syllabus: syllabus === 'standard' ? '华文' : '基础华文',
+                    
+                    // 4 Sub-component Scores
+                    readingPronScore: scores.readingPron,       // 朗读 1: 语音与清晰度
+                    readingFluencyScore: scores.readingFluency,   // 朗读 2: 语调与流利度
+                    
+                    // 2 Additional Combined Scores
+                    readingCombinedScore: readingCombined,       // 朗读小计 (Foundation: /15, Standard: /20)
+                    
+                    convResponseScore: scores.convResponse,       // 会话 1: 个人意见的回应和发展
+                    convLanguageScore: scores.convLanguage,       // 会话 2: 语文表达和流利度
+                    convCombinedScore: convTotal,                 // 会话小计 (Foundation: /40, Standard: /30)
+                    
+                    totalScore: grandTotal,                       // 总分 (Foundation: /55, Standard: /50)
+                    maxTotal: maxTotal,
+                    feedback: feedbackText,
+                    timestamp: new Date().toLocaleString('zh-CN', { hour12: false })
+                };
+
+                try {
+                    const response = await fetch(gasUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    setSubmitStatus('idle');
+                    setDialog({ 
+                        isOpen: true, 
+                        title: '✅ 提交成功！', 
+                        message: `学生 ${student.name} 的成绩已保存到云端。`, 
+                        type: 'alert',
+                        isSuccess: true 
+                    });
+                } catch (error) {
+                    setSubmitStatus('idle');
+                    setDialog({ isOpen: true, title: '提交失败', message: '网络错误，请重试。', type: 'alert' });
+                }
+            };
+
+            const resetForm = () => {
+                setDialog({
+                    isOpen: true,
+                    title: '确认清空',
+                    message: '确定要清空当前分数，准备给下一位学生打分吗？',
+                    type: 'confirm',
+                    onConfirm: () => {
+                        clearScores();
+                    }
+                });
+            }
+
+            const renderRubricRow = (categoryKey, rubricObj) => (
+                <div className="mb-10 bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 no-print">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <h3 className="font-bold text-xl md:text-2xl text-slate-800">
+                            {rubricObj.title} <span className="text-slate-400 text-lg font-medium">({rubricObj.max}分)</span>
+                        </h3>
+                        <div className="flex items-center space-x-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-200 w-full md:w-auto justify-between md:justify-start">
+                            <span className="text-base md:text-lg text-blue-900 font-bold">得分:</span>
+                            <div className="flex items-baseline">
+                                <input 
+                                    type="number" 
+                                    min="0" max={rubricObj.max}
+                                    value={scores[categoryKey]} 
+                                    onChange={(e) => handleScoreChange(categoryKey, e.target.value)}
+                                    className="w-16 text-center font-black text-2xl text-blue-700 bg-transparent border-b-2 border-blue-300 focus:outline-none focus:border-blue-700 transition-colors"
+                                />
+                                <span className="text-slate-500 font-medium ml-1">/{rubricObj.max}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        {rubricObj.items.map((item, index) => {
+                            const isSelected = selections[categoryKey] === index;
+                            return (
+                                <div 
+                                    key={index}
+                                    onClick={() => handleSelect(categoryKey, index, item.scores[item.scores.length - 1])}
+                                    className={`cursor-pointer rounded-xl p-4 transition-all duration-200 border-2 flex flex-col ${
+                                        isSelected 
+                                        ? 'border-blue-600 bg-blue-50 shadow-md ring-4 ring-blue-100 scale-[1.02]' 
+                                        : 'border-slate-200 hover:border-blue-400 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <div className="flex flex-wrap gap-2 mb-3">
+                                        {item.scores.map(s => (
+                                            <button
+                                                key={s}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleSelect(categoryKey, index, s);
+                                                }}
+                                                className={`w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center text-sm md:text-base font-black transition-all ${
+                                                    isSelected && scores[categoryKey] === s 
+                                                    ? 'bg-blue-600 text-white shadow-lg scale-110' 
+                                                    : 'bg-white border-2 border-slate-300 text-slate-600 hover:bg-blue-100 hover:text-blue-800 hover:border-blue-400'
+                                                }`}
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className={`font-bold text-lg mb-2 ${isSelected ? 'text-blue-800' : 'text-slate-700'}`}>
+                                        {item.label}
+                                    </div>
+                                    <div className={`text-sm leading-relaxed flex-grow ${isSelected ? 'text-blue-900/80 font-medium' : 'text-slate-500'}`}>
+                                        {item.desc}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+                    
+                    {/* Modal Dialogs */}
+                    {dialog.isOpen && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4 no-print">
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all border border-slate-200">
+                                <div className={`p-10 ${dialog.isSuccess ? 'bg-green-50 text-center' : ''}`}>
+                                    {dialog.isSuccess && <div className="text-7xl mb-6">🎉</div>}
+                                    <h3 className={`font-black text-3xl mb-4 ${dialog.isSuccess ? 'text-green-800' : 'text-slate-900'}`}>
+                                        {dialog.title || '提示'}
+                                    </h3>
+                                    <p className={`leading-relaxed text-xl ${dialog.isSuccess ? 'text-green-900 font-medium' : 'text-slate-600'}`}>
+                                        {dialog.message}
+                                    </p>
+                                </div>
+                                <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-center space-x-4">
+                                    {dialog.type === 'confirm' && (
+                                        <button 
+                                            onClick={() => setDialog({ ...dialog, isOpen: false })} 
+                                            className="px-8 py-4 text-slate-600 font-bold text-lg hover:bg-slate-200 rounded-xl transition-colors w-full"
+                                        >
+                                            取消
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={() => { 
+                                            if(dialog.onConfirm) dialog.onConfirm(); 
+                                            setDialog({ ...dialog, isOpen: false, isSuccess: false }); 
+                                        }} 
+                                        className={`px-8 py-4 text-white font-black text-lg rounded-xl shadow-lg transition-colors w-full ${dialog.isSuccess ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                    >
+                                        我知道了
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Top Navigation & Info Bar */}
+                    <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl shadow-md border-b border-slate-200 rounded-b-3xl p-4 lg:p-5 mb-8 flex flex-col xl:flex-row justify-between items-start xl:items-center no-print gap-4 transition-all">
+                        
+                        <div className="flex flex-col space-y-4 w-full xl:w-auto">
+                            {/* App Title and Actions */}
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                <span className="text-2xl font-black bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent drop-shadow-sm whitespace-nowrap">雅德小学五年级华文/基础华文口试</span>
+                                
+                                {/* Syllabus Toggle Button */}
+                                <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                                    <button
+                                        onClick={() => handleSyllabusChange('standard')}
+                                        className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-all ${syllabus === 'standard' ? 'bg-slate-100 text-blue-700 shadow-inner' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >
+                                        华文
+                                    </button>
+                                    <button
+                                        onClick={() => handleSyllabusChange('foundation')}
+                                        className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-all ${syllabus === 'foundation' ? 'bg-slate-100 text-emerald-700 shadow-inner' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >
+                                        基础华文
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Dropdowns: Team Number -> 级任班 -> 母语班 -> 考生 -> 主考老师 */}
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center space-x-1">
+                                    <span className="text-xs font-bold text-slate-500 uppercase">Team Number:</span>
+                                    <select value={student.team} onChange={handleTeamChange} className="border-2 border-slate-200 rounded-xl px-3 py-2 bg-white focus:ring-4 focus:ring-blue-500/20 outline-none font-bold text-blue-700 cursor-pointer shadow-sm">
+                                        <option value="">- 选择 -</option>
+                                        {availableTeams.map(t => <option key={t} value={t}>Team {t}</option>)}
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center space-x-1">
+                                    <span className="text-xs font-bold text-slate-500 uppercase">级任班:</span>
+                                    <select value={student.class} onChange={handleFormClassChange} disabled={!student.team} className="border-2 border-slate-200 rounded-xl px-3 py-2 bg-white focus:ring-4 focus:ring-blue-500/20 outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:bg-slate-100 disabled:cursor-not-allowed">
+                                        <option value="">- 选择 -</option>
+                                        {availableFormClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center space-x-1">
+                                    <span className="text-xs font-bold text-slate-500 uppercase">母语班:</span>
+                                    <select value={student.mtl} onChange={handleMTClassChange} disabled={!student.class} className="border-2 border-slate-200 rounded-xl px-3 py-2 bg-white focus:ring-4 focus:ring-blue-500/20 outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:bg-slate-100 disabled:cursor-not-allowed">
+                                        <option value="">- 选择 -</option>
+                                        {availableMTClasses.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center space-x-1">
+                                    <span className="text-xs font-bold text-slate-500 uppercase">考生:</span>
+                                    <select value={student.name} onChange={handleStudentSelect} disabled={!student.mtl} className="w-40 md:w-56 border-2 border-slate-200 rounded-xl px-3 py-2 bg-white focus:ring-4 focus:ring-blue-500/20 outline-none font-bold text-blue-700 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed">
+                                        <option value="">- 选择 -</option>
+                                        {filteredStudents.map((s, i) => <option key={i} value={s.name}>{s.name}</option>)}
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center space-x-1 md:border-l-2 md:border-slate-200 md:pl-3">
+                                    <span className="text-xs font-bold text-purple-600 uppercase">主考老师:</span>
+                                    <select value={currentExaminer} onChange={handleExaminerChange} disabled={!student.team} className="border-2 border-purple-200 rounded-xl px-3 py-2 bg-purple-50 focus:ring-4 focus:ring-purple-500/20 outline-none font-bold text-purple-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed">
+                                        <option value="">- 选择 -</option>
+                                        {availableExaminers.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Live Score Summary */}
+                        <div className="flex items-center justify-end space-x-4 md:space-x-6 w-full xl:w-auto bg-white/50 xl:bg-transparent p-3 xl:p-0 rounded-2xl xl:rounded-none">
+                            <div className="text-center">
+                                <div className="text-xs text-slate-500 font-bold mb-1">朗读小计</div>
+                                <div className="font-black text-xl text-indigo-600">{readingCombined}<span className="text-sm text-slate-400 font-medium">/{maxReading}</span></div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-xs text-slate-500 font-bold mb-1">会话小计</div>
+                                <div className="font-black text-xl text-indigo-600">{convTotal}<span className="text-sm text-slate-400 font-medium">/{maxConv}</span></div>
+                            </div>
+                            <div className={`text-center px-6 py-2 rounded-2xl shadow-md transition-colors ${syllabus === 'foundation' ? 'bg-emerald-600' : 'bg-blue-600'} text-white`}>
+                                <div className="text-xs font-bold opacity-90 mb-1">总分</div>
+                                <div className="font-black text-3xl leading-none">{grandTotal}<span className="text-sm font-medium opacity-80 ml-1">/{maxTotal}</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Print Only View */}
+                    <div className="print-only print-container">
+                        <div className="text-center mb-6 border-b-2 border-slate-200 pb-6">
+                            <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-wide">🌟 雅德小学五年级华文/基础华文口试反馈单 🌟</h1>
+                            <p className="text-slate-500 mb-4 text-lg">({syllabus === 'standard' ? '华文' : '基础华文'})</p>
+                            <div className="flex justify-center flex-wrap gap-6 text-lg text-slate-700 font-medium">
+                                <span>Team Number：<strong className="text-slate-900 font-black">{student.team ? `Team ${student.team}` : "未选择"}</strong></span>
+                                <span>级任班：<strong className="text-slate-900 font-black">{student.class || "未选择"}</strong></span>
+                                <span>母语班：<strong className="text-slate-900 font-black">{student.mtl || "未选择"}</strong></span>
+                                <span>考生：<strong className="text-slate-900 font-black">{student.name || "未选择"}</strong></span>
+                                <span>主考老师：<strong className="text-slate-900 font-black">{currentExaminer || "未选择"}</strong></span>
+                            </div>
+                        </div>
+                        
+                        <div className="flex justify-center items-center gap-4 mb-8">
+                            <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 w-32 text-center">
+                                <div className="text-slate-600 font-bold text-sm mb-1">朗读</div>
+                                <div className="text-2xl font-black text-slate-800">{readingCombined} <span className="text-base font-normal text-slate-400">/ {maxReading}</span></div>
+                            </div>
+                            <div className="text-2xl text-slate-300 font-light">+</div>
+                            <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 w-32 text-center">
+                                <div className="text-slate-600 font-bold text-sm mb-1">会话</div>
+                                <div className="text-2xl font-black text-slate-800">{convTotal} <span className="text-base font-normal text-slate-400">/ {maxConv}</span></div>
+                            </div>
+                            <div className="text-2xl text-slate-300 font-light">=</div>
+                            <div className={`border-4 rounded-2xl p-5 w-40 text-center shadow-sm ${syllabus === 'foundation' ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'}`}>
+                                <div className={`font-bold text-sm mb-1 ${syllabus === 'foundation' ? 'text-emerald-700' : 'text-blue-700'}`}>本次总分</div>
+                                <div className={`text-4xl font-black ${syllabus === 'foundation' ? 'text-emerald-800' : 'text-blue-800'}`}>{grandTotal} <span className={`text-lg ${syllabus === 'foundation' ? 'text-emerald-400' : 'text-blue-400'}`}>/ {maxTotal}</span></div>
+                            </div>
+                        </div>
+
+                        <div className="mb-6">
+                            <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center">
+                                <span className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 text-lg ${syllabus === 'foundation' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>💡</span> 
+                                老师对你说：
+                            </h2>
+                            <div className="bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 text-lg text-slate-800 leading-loose font-medium text-justify whitespace-pre-wrap min-h-[150px]">
+                                {feedbackText || "老师还没有完成评分哦。"}
+                            </div>
+                        </div>
+                        
+                        <div className="text-center mt-10 text-slate-500 font-black text-lg tracking-widest">
+                            继续加油！期待你下一次的精彩表现！🚀
+                        </div>
+                    </div>
+
+                    {/* Interactive Rubrics Area */}
+                    <div className="no-print">
+                        <div className="mb-12">
+                            <h2 className={`text-2xl font-black text-slate-800 mb-6 px-4 border-l-8 rounded-sm ${syllabus === 'foundation' ? 'border-emerald-500' : 'border-blue-600'}`}>
+                                第一部分：朗读短文 ({isFoundation ? '15分 [（语音+语调）÷ 2]' : '20分'})
+                            </h2>
+                            {renderRubricRow('readingPron', currentRubrics.readingPron)}
+                            {renderRubricRow('readingFluency', currentRubrics.readingFluency)}
+                        </div>
+
+                        <div className="mb-12">
+                            <h2 className={`text-2xl font-black text-slate-800 mb-6 px-4 border-l-8 rounded-sm ${syllabus === 'foundation' ? 'border-emerald-500' : 'border-green-500'}`}>
+                                第二部分：看录像会话 ({maxConv}分)
+                            </h2>
+                            {renderRubricRow('convResponse', currentRubrics.convResponse)}
+                            {renderRubricRow('convLanguage', currentRubrics.convLanguage)}
+                        </div>
+
+                        {/* Feedback Editor Area */}
+                        <div className={`mt-12 p-6 md:p-8 rounded-3xl border-2 shadow-sm ${syllabus === 'foundation' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-blue-50/50 border-blue-100'}`}>
+                            <h3 className={`font-black text-xl md:text-2xl mb-4 flex items-center ${syllabus === 'foundation' ? 'text-emerald-900' : 'text-blue-900'}`}>
+                                📝 自动生成评语预览 
+                                <span className={`text-sm font-normal ml-3 px-3 py-1 rounded-full ${syllabus === 'foundation' ? 'text-emerald-600 bg-emerald-100' : 'text-blue-600 bg-blue-100'}`}>
+                                    (可直接点击框内随意修改、添加或删除内容)
+                                </span>
+                            </h3>
+                            <textarea 
+                                className={`w-full h-48 md:h-64 p-6 rounded-2xl border-2 focus:ring-4 outline-none resize-none text-slate-800 text-lg leading-relaxed text-justify shadow-inner bg-white ${syllabus === 'foundation' ? 'border-emerald-200 focus:ring-emerald-500/20 focus:border-emerald-500' : 'border-blue-200 focus:ring-blue-500/20 focus:border-blue-500'}`}
+                                value={feedbackText}
+                                onChange={(e) => setFeedbackText(e.target.value)}
+                                placeholder="点击上方表格，这里会自动生成针对性的评语。你也可以直接在这里输入特别寄语..."
+                            ></textarea>
+                            
+                            <div className="flex flex-col md:flex-row justify-between items-center mt-8 gap-4 pt-6 border-t border-slate-200/60">
+                                <button 
+                                    onClick={resetForm} 
+                                    className="flex items-center text-slate-600 bg-white hover:bg-slate-100 border-2 border-slate-200 font-bold text-base px-6 py-3 rounded-xl transition-all order-2 md:order-1 shadow-sm"
+                                >
+                                    🔄 清空重置 
+                                </button>
+                                
+                                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full md:w-auto order-1 md:order-2">
+                                    <button 
+                                        onClick={handleSavePDF}
+                                        className="justify-center bg-white border-2 border-slate-300 hover:border-slate-400 text-slate-800 px-6 py-3 rounded-xl font-bold text-base shadow-sm flex items-center transition-all"
+                                    >
+                                        💾 保存 PDF
+                                    </button>
+                                    {pdfStatus && (
+                                        <span className="self-center text-sm font-bold text-green-700 whitespace-nowrap">{pdfStatus}</span>
+                                    )}
+                                    <button 
+                                        onClick={handleSubmitGAS}
+                                        disabled={submitStatus === 'loading'}
+                                        className={`justify-center text-white px-8 py-3 rounded-xl font-bold text-base shadow-md flex items-center transition-all transform hover:-translate-y-0.5 ${
+                                            submitStatus === 'loading' 
+                                            ? 'bg-indigo-400' 
+                                            : (syllabus === 'foundation' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700')
+                                        }`}
+                                    >
+                                        {submitStatus === 'loading' ? '☁️ 提交中...' : '☁️ 提交云端表格'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
