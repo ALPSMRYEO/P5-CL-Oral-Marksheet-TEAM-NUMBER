@@ -378,7 +378,8 @@
             const [selections, setSelections] = useState({ readingPron: null, readingFluency: null, convResponse: null, convLanguage: null });
             
             const [feedbackText, setFeedbackText] = useState('');
-            const [lastAutoText, setLastAutoText] = useState('');
+            const [lastAutoReading, setLastAutoReading] = useState('');
+            const [lastAutoConv, setLastAutoConv] = useState('');
 
             // Updated Google Apps Script Web App URL
             const gasUrl = 'https://script.google.com/macros/s/AKfycbzS93etfFdNTnZKCuapCtR3in4EnbpZV8jkcutLMLdSPao-pbBAE1-MoPH3TXRT1AIcog/exec';
@@ -439,16 +440,38 @@
 
             useEffect(() => {
                 setFeedbackText((currentText) => {
-                    if (!currentText || currentText === lastAutoText) {
-                        return generatedFeedback;
-                    }
-                    if (lastAutoText && currentText.includes(lastAutoText)) {
-                        return currentText.replace(lastAutoText, generatedFeedback);
-                    }
-                    return generatedFeedback;
+                    let updatedText = currentText || '';
+
+                    const updateSection = (text, heading, previousAuto, newAuto) => {
+                        if (!newAuto) return text;
+
+                        const newSection = `${heading}\n${newAuto}`;
+                        const previousSection = previousAuto ? `${heading}\n${previousAuto}` : '';
+
+                        // If the previous AI text is still untouched, it is safe to refresh it.
+                        if (previousSection && text.includes(previousSection)) {
+                            return text.replace(previousSection, newSection);
+                        }
+
+                        // If this section already exists but no longer matches the previous
+                        // AI text, the examiner has edited it. Preserve the examiner's wording.
+                        if (text.includes(heading)) {
+                            return text;
+                        }
+
+                        // This is a new section (e.g. Conversation after Reading). Append it
+                        // without changing any feedback the examiner has already edited.
+                        return text.trim() ? `${text.trim()}\n\n${newSection}` : newSection;
+                    };
+
+                    updatedText = updateSection(updatedText, '【朗读】', lastAutoReading, generatedReadingFeedback);
+                    updatedText = updateSection(updatedText, '【会话】', lastAutoConv, generatedConvFeedback);
+                    return updatedText;
                 });
-                setLastAutoText(generatedFeedback);
-            }, [generatedFeedback]);
+
+                setLastAutoReading(generatedReadingFeedback);
+                setLastAutoConv(generatedConvFeedback);
+            }, [generatedReadingFeedback, generatedConvFeedback]);
 
             const handleSyllabusChange = (newSyllabus) => {
                 if (newSyllabus === syllabus) return;
