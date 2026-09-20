@@ -604,58 +604,129 @@
                 else setStudent({ ...student, name: selectedName });
             };
 
-            const handleSubmitGAS = async () => {
-                if (!student.name || !currentExaminer) {
-                    setDialog({ isOpen: true, title: '提示', message: '请确保填入学生姓名并选择主考老师。', type: 'alert' });
-                    return;
-                }
+            const buildPayload = () => ({
+                level: 'P5',
+                teamNumber: student.team,
+                className: student.class,
+                indexNo: '',
+                studentName: student.name,
+                examiner: currentExaminer,
+                mtl: student.mtl,
+                syllabus: syllabus === 'standard' ? '华文' : '基础华文',
 
+                readingPronScore: scores.readingPron,
+                readingFluencyScore: scores.readingFluency,
+                readingCombinedScore: readingCombined,
+
+                convResponseScore: scores.convResponse,
+                convLanguageScore: scores.convLanguage,
+                convCombinedScore: convTotal,
+
+                totalScore: grandTotal,
+                maxTotal: maxTotal,
+                feedback: feedbackText,
+                timestamp: new Date().toLocaleString('zh-CN', { hour12: false })
+            });
+
+            const submitAssessment = async () => {
                 setSubmitStatus('loading');
-                
-                const payload = {
-                    teamNumber: student.team,
-                    className: student.class,
-                    indexNo: '',
-                    studentName: student.name,
-                    examiner: currentExaminer,
-                    mtl: student.mtl,
-                    syllabus: syllabus === 'standard' ? '华文' : '基础华文',
-                    
-                    // 4 Sub-component Scores
-                    readingPronScore: scores.readingPron,       // 朗读 1: 语音与清晰度
-                    readingFluencyScore: scores.readingFluency,   // 朗读 2: 语调与流利度
-                    
-                    // 2 Additional Combined Scores
-                    readingCombinedScore: readingCombined,       // 朗读小计 (Foundation: /15, Standard: /20)
-                    
-                    convResponseScore: scores.convResponse,       // 会话 1: 个人意见的回应和发展
-                    convLanguageScore: scores.convLanguage,       // 会话 2: 语文表达和流利度
-                    convCombinedScore: convTotal,                 // 会话小计 (Foundation: /40, Standard: /30)
-                    
-                    totalScore: grandTotal,                       // 总分 (Foundation: /55, Standard: /50)
-                    maxTotal: maxTotal,
-                    feedback: feedbackText,
-                    timestamp: new Date().toLocaleString('zh-CN', { hour12: false })
-                };
 
                 try {
                     const response = await fetch(gasUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify(buildPayload())
                     });
-                    
+
+                    const key = `P5|${student.mtl}|${student.name}`.toUpperCase();
+                    localStorage.setItem(`oralSubmitted:${key}`, JSON.stringify({
+                        examiner: currentExaminer,
+                        timestamp: new Date().toLocaleString('zh-CN', { hour12: false })
+                    }));
+
                     setSubmitStatus('idle');
-                    setDialog({ 
-                        isOpen: true, 
-                        title: '✅ 提交成功！', 
-                        message: `学生 ${student.name} 的成绩已保存到云端。`, 
+                    setDialog({
+                        isOpen: true,
+                        title: '✅ 提交成功！',
+                        message: `学生 ${student.name} 的成绩已保存到云端。`,
                         type: 'alert',
-                        isSuccess: true 
+                        isSuccess: true
                     });
                 } catch (error) {
                     setSubmitStatus('idle');
                     setDialog({ isOpen: true, title: '提交失败', message: '网络错误，请重试。', type: 'alert' });
+                }
+            };
+
+            const showDuplicateWarning = (previous) => {
+                const details = previous
+                    ? `\n上一次主考老师：${previous.examiner || '未记录'}\n上一次提交时间：${previous.timestamp || '未记录'}`
+                    : '';
+
+                setDialog({
+                    isOpen: true,
+                    title: '⚠️ 成绩已提交',
+                    message: `学生 ${student.name} 的成绩已经提交过。${details}\n\n请选择“取消”返回检查，或“继续”再次提交。`,
+                    type: 'confirm',
+                    onConfirm: () => {
+                        setDialog(d => ({ ...d, isOpen: false }));
+                        submitAssessment();
+                    }
+                });
+            };
+
+            const handleSubmitGAS = async () => {
+                if (!student.name || !student.mtl || !currentExaminer) {
+                    setDialog({ isOpen: true, title: '提示', message: '请确保填入学生姓名、MT班级并选择主考老师。', type: 'alert' });
+                    return;
+                }
+
+                if (submitStatus === 'loading') return;
+
+                const key = `P5|${student.mtl}|${student.name}`.toUpperCase();
+                const localPrevious = localStorage.getItem(`oralSubmitted:${key}`);
+
+                // Safeguard 1: catches accidental second submission immediately
+                // on the same browser/device, even without resetting the form.
+                if (localPrevious) {
+                    let previous = null;
+                    try { previous = JSON.parse(localPrevious); } catch (e) {}
+                    showDuplicateWarning(previous);
+                    return;
+                }
+
+                setSubmitStatus('loading');
+
+                // Safeguard 2: checks the Google Sheet, so a submission by
+                // another examiner/device is also detected.
+                try {
+                    const checkUrl =
+                        `${gasUrl}?action=check&level=P5&mtClass=${encodeURIComponent(student.mtl)}` +
+                        `&studentName=${encodeURIComponent(student.name)}&_=${Date.now()}`;
+
+                    const response = await fetch(checkUrl, {
+                        method: 'GET',
+                        cache: 'no-store',
+                        redirect: 'follow'
+                    });
+                    const result = await response.json();
+
+                    setSubmitStatus('idle');
+
+                    if (result && result.exists) {
+                        showDuplicateWarning(result.previous || null);
+                        return;
+                    }
+
+                    await submitAssessment();
+                } catch (error) {
+                    setSubmitStatus('idle');
+                    setDialog({
+                        isOpen: true,
+                        title: '无法检查重复提交',
+                        message: '系统暂时无法连接 Google Sheet 检查这名学生是否已经提交成绩。为避免重复记录，本次没有提交。请检查网络或 Apps Script 部署后再试。',
+                        type: 'alert'
+                    });
                 }
             };
 
