@@ -628,15 +628,35 @@
                 timestamp: new Date().toLocaleString('zh-CN', { hour12: false })
             });
 
-            const submitAssessment = async () => {
+            const submitAssessment = async (forceDuplicate = false) => {
                 setSubmitStatus('loading');
 
                 try {
+                    const payload = {
+                        ...buildPayload(),
+                        forceDuplicate
+                    };
+
                     const response = await fetch(gasUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify(buildPayload())
+                        body: JSON.stringify(payload)
                     });
+
+                    const result = await response.json();
+                    setSubmitStatus('idle');
+
+                    // Code.gs is the final authority. If another examiner/device
+                    // submitted first, do not save another row unless the examiner
+                    // explicitly chooses to continue.
+                    if (result && result.duplicate && result.saved === false) {
+                        showDuplicateWarning(result.previous || null);
+                        return;
+                    }
+
+                    if (!result || result.ok !== true || result.saved !== true) {
+                        throw new Error((result && result.error) || 'Submission was not confirmed.');
+                    }
 
                     const key = `P5|${student.mtl}|${student.name}`.toUpperCase();
                     localStorage.setItem(`oralSubmitted:${key}`, JSON.stringify({
@@ -644,7 +664,6 @@
                         timestamp: new Date().toLocaleString('zh-CN', { hour12: false })
                     }));
 
-                    setSubmitStatus('idle');
                     setDialog({
                         isOpen: true,
                         title: '✅ 提交成功！',
@@ -654,7 +673,12 @@
                     });
                 } catch (error) {
                     setSubmitStatus('idle');
-                    setDialog({ isOpen: true, title: '提交失败', message: '网络错误，请重试。', type: 'alert' });
+                    setDialog({
+                        isOpen: true,
+                        title: '提交失败',
+                        message: '系统未能确认成绩已经保存。请检查网络后再试。',
+                        type: 'alert'
+                    });
                 }
             };
 
@@ -670,7 +694,7 @@
                     type: 'confirm',
                     onConfirm: () => {
                         setDialog(d => ({ ...d, isOpen: false }));
-                        submitAssessment();
+                        submitAssessment(true);
                     }
                 });
             };
@@ -720,13 +744,12 @@
 
                     await submitAssessment();
                 } catch (error) {
+                    // If the preliminary GET check fails, continue to POST.
+                    // Code.gs performs the authoritative duplicate check while
+                    // holding the script lock, so this does not create an
+                    // accidental duplicate.
                     setSubmitStatus('idle');
-                    setDialog({
-                        isOpen: true,
-                        title: '无法检查重复提交',
-                        message: '系统暂时无法连接 Google Sheet 检查这名学生是否已经提交成绩。为避免重复记录，本次没有提交。请检查网络或 Apps Script 部署后再试。',
-                        type: 'alert'
-                    });
+                    await submitAssessment(false);
                 }
             };
 
